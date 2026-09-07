@@ -1,0 +1,1 @@
+"""Reusable PharmReview content data."""
