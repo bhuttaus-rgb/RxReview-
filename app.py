@@ -1,5 +1,6 @@
 from __future__ import annotations
 import html
+import secrets
 import streamlit as st
 from data.cases import CASE_01, ClinicalCase, MedicationRule
 from data.id_quiz import ID_QUIZ_01, LEARNING_SEQUENCE, QUESTIONS_BY_ID, display_choices, questions_for_stage
@@ -71,6 +72,8 @@ def init_state():
                 "id_streak":0, "id_best_streak":0, "id_xp":0}
     for key, value in defaults.items():
         if key not in st.session_state: st.session_state[key] = value
+    if "id_choice_seed" not in st.session_state:
+        st.session_state.id_choice_seed = secrets.randbits(64)
 
 def reset():
     for key in ("screen","med_index","answers","submitted"): st.session_state.pop(key, None)
@@ -79,6 +82,7 @@ def reset():
 def reset_id_quiz():
     for key in ("id_index", "id_answers", "id_selected", "id_revealed", "id_streak", "id_best_streak", "id_xp"):
         st.session_state.pop(key, None)
+    st.session_state.id_choice_seed = secrets.randbits(64)
     st.session_state.app_mode = "id"
     st.rerun()
 
@@ -363,7 +367,7 @@ def id_quiz():
     revealed = st.session_state.id_revealed
     selected_id = st.session_state.id_selected
     is_correct = revealed and selected_id == question.correct_choice_id
-    ordered_choices = display_choices(question)
+    ordered_choices = display_choices(question, st.session_state.id_choice_seed)
     display_letters = {choice.id: chr(65 + index) for index, choice in enumerate(ordered_choices)}
 
     st.markdown(f'''<div class="battle-top"><div><h1>ID QUIZ PREP <span class="learning-badge">LEARNING MODE</span></h1></div>
