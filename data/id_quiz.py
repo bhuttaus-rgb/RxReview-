@@ -374,9 +374,11 @@ def questions_for_stage(stage: BattleStage) -> tuple[BattleQuestion, ...]:
     return tuple(question for question in ID_QUIZ_01 if question.stage == stage)
 
 
-def display_choices(question: BattleQuestion) -> tuple[Choice, Choice, Choice, Choice]:
-    """Return a stable per-question order so answers do not move across reruns."""
+def display_choices(question: BattleQuestion, attempt_seed: int = 0) -> tuple[Choice, Choice, Choice, Choice]:
+    """Return a shuffled order that stays stable for one quiz attempt."""
     return tuple(sorted(
         question.choices,
-        key=lambda choice: hashlib.sha256(f"{question.id}:{choice.id}".encode()).digest(),
+        key=lambda choice: hashlib.sha256(
+            f"{attempt_seed}:{question.id}:{choice.id}".encode()
+        ).digest(),
     ))
