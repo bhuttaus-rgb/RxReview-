@@ -388,7 +388,6 @@ def id_quiz():
     <span class="xp-chip">+{st.session_state.id_xp} XP</span></div><small>Learn the distinction, then continue to the next battle.</small></div>''', unsafe_allow_html=True)
     if st.button("Next battle", icon=":material/arrow_forward:", type="primary", disabled=not revealed, width="stretch"):
         advance_id_battle()
-    st.caption("Educational quiz-prep prototype based on the supplied MOST V course materials. No dosing is tested in this module.")
 
 init_state(); sidebar(CASE_01)
 if st.session_state.app_mode == "id":
