@@ -74,6 +74,7 @@ def init_state():
                 "id_streak":0, "id_best_streak":0, "id_xp":0}
     for key, value in defaults.items():
         if key not in st.session_state: st.session_state[key] = value
+    # One seed keeps both question and choice shuffles stable during an attempt.
     if "id_choice_seed" not in st.session_state:
         st.session_state.id_choice_seed = secrets.randbits(64)
 
