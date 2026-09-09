@@ -71,19 +71,24 @@ div.stButton>button{border-radius:10px;font-weight:700;min-height:46px}div.stBut
 def init_state():
     defaults = {"app_mode":"case", "screen":"overview", "med_index":0, "answers":{}, "submitted":False,
                 "id_index":0, "id_answers":{}, "id_selected":None, "id_revealed":False,
-                "id_streak":0, "id_best_streak":0, "id_xp":0}
+                "id_streak":0, "id_best_streak":0, "id_xp":0,
+                "id_question_queue":None, "id_mastered":[]}
     for key, value in defaults.items():
         if key not in st.session_state: st.session_state[key] = value
     # One seed keeps both question and choice shuffles stable during an attempt.
     if "id_choice_seed" not in st.session_state:
         st.session_state.id_choice_seed = secrets.randbits(64)
+    if st.session_state.id_question_queue is None:
+        st.session_state.id_question_queue = [
+            question.id for question in display_questions(st.session_state.id_choice_seed)
+        ]
 
 def reset():
     for key in ("screen","med_index","answers","submitted"): st.session_state.pop(key, None)
     st.rerun()
 
 def reset_id_quiz():
-    for key in ("id_index", "id_answers", "id_selected", "id_revealed", "id_streak", "id_best_streak", "id_xp"):
+    for key in ("id_index", "id_answers", "id_selected", "id_revealed", "id_streak", "id_best_streak", "id_xp", "id_question_queue", "id_mastered"):
         st.session_state.pop(key, None)
     st.session_state.id_choice_seed = secrets.randbits(64)
     st.session_state.app_mode = "id"
@@ -281,10 +286,12 @@ def record_id_answer(question_id: str, choice_id: str):
         return
     question = QUESTIONS_BY_ID[question_id]
     correct = choice_id == question.correct_choice_id
-    st.session_state.id_answers[question_id] = choice_id
+    st.session_state.id_answers.setdefault(question_id, choice_id)
     st.session_state.id_selected = choice_id
     st.session_state.id_revealed = True
     if correct:
+        if question_id not in st.session_state.id_mastered:
+            st.session_state.id_mastered.append(question_id)
         st.session_state.id_streak += 1
         st.session_state.id_xp += 20
         st.session_state.id_best_streak = max(st.session_state.id_best_streak, st.session_state.id_streak)
@@ -292,6 +299,18 @@ def record_id_answer(question_id: str, choice_id: str):
         st.session_state.id_streak = 0
 
 def advance_id_battle():
+    queue = st.session_state.id_question_queue
+    current = QUESTIONS_BY_ID[queue[st.session_state.id_index]]
+    next_index = st.session_state.id_index + 1
+    next_stage = QUESTIONS_BY_ID[queue[next_index]].stage if next_index < len(queue) else None
+    if next_stage != current.stage:
+        mastered = set(st.session_state.id_mastered)
+        missed = [
+            question.id for question in display_questions(st.session_state.id_choice_seed)
+            if question.stage == current.stage and question.id not in mastered
+        ]
+        if missed:
+            queue[next_index:next_index] = missed
     st.session_state.id_index += 1
     st.session_state.id_selected = None
     st.session_state.id_revealed = False
@@ -334,9 +353,8 @@ def enemy_asset_for(question):
     return ENEMY_ASSETS[sum(map(ord, question.id)) % len(ENEMY_ASSETS)]
 
 
-def render_enemy(question, is_correct: bool):
-    health = 60 if is_correct else 100
-    enemy_label = "Enemy weakened" if is_correct else "Enemy health"
+def render_enemy(question, health: int):
+    enemy_label = "Enemy defeated" if health == 0 else ("Enemy weakened" if health < 100 else "Enemy health")
     with st.container(key=f"enemy_panel_{question.id}"):
         st.image(enemy_asset_for(question), width=180)
         st.markdown(f'''
@@ -376,17 +394,18 @@ def render_id_feedback(question, ordered_choices, display_letters, selected_id: 
     <div class="battle-feedback-source">Source: {html.escape(question.source_title)} · {html.escape(question.source_section)}</div></div></div></div>''', unsafe_allow_html=True)
 
 def id_quiz():
-    question_order = display_questions(st.session_state.id_choice_seed)
-    if st.session_state.id_index >= len(question_order):
+    question_queue = st.session_state.id_question_queue
+    if st.session_state.id_index >= len(question_queue):
         id_quiz_complete()
         return
 
-    question = question_order[st.session_state.id_index]
+    question = QUESTIONS_BY_ID[question_queue[st.session_state.id_index]]
     stage = next(item for item in LEARNING_SEQUENCE if item.id == question.stage)
     stage_questions = questions_for_stage(question.stage)
-    stage_position = next(index for index, item in enumerate(stage_questions, start=1) if item.id == question.id)
+    mastered_count = sum(item.id in st.session_state.id_mastered for item in stage_questions)
     global_position = st.session_state.id_index + 1
-    stage_percent = round(stage_position / len(stage_questions) * 100)
+    stage_percent = round(mastered_count / len(stage_questions) * 100)
+    enemy_health = max(0, 100 - stage_percent)
     revealed = st.session_state.id_revealed
     selected_id = st.session_state.id_selected
     is_correct = revealed and selected_id == question.correct_choice_id
@@ -394,14 +413,14 @@ def id_quiz():
     display_letters = {choice.id: chr(65 + index) for index, choice in enumerate(ordered_choices)}
 
     st.markdown(f'''<div class="battle-top"><div><h1>ID QUIZ PREP <span class="learning-badge">LEARNING MODE</span></h1></div>
-    <div><b>Question {global_position} of {len(ID_QUIZ_01)}</b> &nbsp; ⓘ How to Play</div></div>
-    <div class="battle-progress"><div class="battle-progress-label"><b>{html.escape(stage.title)}</b><span>{stage_position} of {len(stage_questions)}</span></div>
+    <div><b>Battle {global_position}</b> &nbsp; ⓘ How to Play</div></div>
+    <div class="battle-progress"><div class="battle-progress-label"><b>{html.escape(stage.title)}</b><span>{mastered_count} of {len(stage_questions)} mastered</span></div>
     <div class="battle-progress-track"><div class="battle-progress-fill" style="width:{stage_percent}%"></div></div></div>''', unsafe_allow_html=True)
 
     with st.container(border=True):
         enemy, answers = st.columns([.72, 2], gap="medium", vertical_alignment="center")
         with enemy:
-            render_enemy(question, is_correct)
+            render_enemy(question, enemy_health)
         with answers:
             st.caption(f"{question.topic.upper()} · {question.difficulty.upper()}")
             st.markdown(f'<div class="battle-question">{html.escape(question.prompt)}</div>', unsafe_allow_html=True)
