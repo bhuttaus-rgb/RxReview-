@@ -374,6 +374,19 @@ def questions_for_stage(stage: BattleStage) -> tuple[BattleQuestion, ...]:
     return tuple(question for question in ID_QUIZ_01 if question.stage == stage)
 
 
+def display_questions(attempt_seed: int = 0) -> tuple[BattleQuestion, ...]:
+    """Shuffle questions within each learning stage for one quiz attempt."""
+    ordered_questions: list[BattleQuestion] = []
+    for stage in LEARNING_SEQUENCE:
+        ordered_questions.extend(sorted(
+            questions_for_stage(stage.id),
+            key=lambda question: hashlib.sha256(
+                f"{attempt_seed}:{stage.id}:{question.id}".encode()
+            ).digest(),
+        ))
+    return tuple(ordered_questions)
+
+
 def display_choices(question: BattleQuestion, attempt_seed: int = 0) -> tuple[Choice, Choice, Choice, Choice]:
     """Return a shuffled order that stays stable for one quiz attempt."""
     return tuple(sorted(
