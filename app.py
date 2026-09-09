@@ -4,7 +4,7 @@ import secrets
 from pathlib import Path
 import streamlit as st
 from data.cases import CASE_01, ClinicalCase, MedicationRule
-from data.id_quiz import ID_QUIZ_01, LEARNING_SEQUENCE, QUESTIONS_BY_ID, display_choices, questions_for_stage
+from data.id_quiz import ID_QUIZ_01, LEARNING_SEQUENCE, QUESTIONS_BY_ID, display_choices, display_questions, questions_for_stage
 from scoring import score_case, xp_earned
 
 st.set_page_config(page_title="PharmReview", page_icon="💊", layout="wide")
@@ -297,6 +297,7 @@ def advance_id_battle():
     st.rerun()
 
 def id_quiz_complete():
+    question_order = display_questions(st.session_state.id_choice_seed)
     correct = sum(
         selected == QUESTIONS_BY_ID[question_id].correct_choice_id
         for question_id, selected in st.session_state.id_answers.items()
@@ -306,7 +307,7 @@ def id_quiz_complete():
     st.markdown(f'''<div class="quiz-complete"><div class="eyebrow" style="color:#a9d4ff">MOST V · ID QUIZ PREP</div>
     <h1>Learning module complete</h1><div class="quiz-score">{correct} / {total}</div><p>{score}% correct · +{st.session_state.id_xp} XP</p>
     <p>Best memory streak: {st.session_state.id_best_streak}</p></div>''', unsafe_allow_html=True)
-    missed = [q for q in ID_QUIZ_01 if st.session_state.id_answers.get(q.id) != q.correct_choice_id]
+    missed = [q for q in question_order if st.session_state.id_answers.get(q.id) != q.correct_choice_id]
     if missed:
         st.markdown("### Concepts to revisit")
         for question in missed:
@@ -374,11 +375,12 @@ def render_id_feedback(question, ordered_choices, display_letters, selected_id: 
     <div class="battle-feedback-source">Source: {html.escape(question.source_title)} · {html.escape(question.source_section)}</div></div></div></div>''', unsafe_allow_html=True)
 
 def id_quiz():
-    if st.session_state.id_index >= len(ID_QUIZ_01):
+    question_order = display_questions(st.session_state.id_choice_seed)
+    if st.session_state.id_index >= len(question_order):
         id_quiz_complete()
         return
 
-    question = ID_QUIZ_01[st.session_state.id_index]
+    question = question_order[st.session_state.id_index]
     stage = next(item for item in LEARNING_SEQUENCE if item.id == question.stage)
     stage_questions = questions_for_stage(question.stage)
     stage_position = next(index for index, item in enumerate(stage_questions, start=1) if item.id == question.id)
