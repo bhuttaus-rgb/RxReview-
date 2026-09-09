@@ -1,6 +1,7 @@
 from __future__ import annotations
 import html
 import secrets
+from pathlib import Path
 import streamlit as st
 from data.cases import CASE_01, ClinicalCase, MedicationRule
 from data.id_quiz import ID_QUIZ_01, LEARNING_SEQUENCE, QUESTIONS_BY_ID, display_choices, questions_for_stage
@@ -56,6 +57,7 @@ h1,h2,h3{font-family:'Newsreader',serif;color:var(--navy)} .block-container{max-
 @media(max-width:1000px){.overview-grid,.result-layout{grid-template-columns:1fr}.task-band{grid-template-columns:1fr}.result-stats{grid-template-columns:1fr 1fr}.feedback-grid{grid-template-columns:1fr}}
 .score-strip{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-top:1rem}.score-stat{background:rgba(255,255,255,.1);border-radius:10px;padding:.65rem .8rem}.score-stat small{display:block;opacity:.72}.score-stat b{font-size:1.1rem}
 .battle-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem}.battle-top h1{font-family:'DM Sans',sans-serif;font-size:1.65rem;margin:0}.learning-badge{display:inline-block;background:#e5f7e9;color:#167c3c;border:1px solid #9bd6aa;border-radius:8px;padding:.3rem .65rem;font-size:.72rem;font-weight:800;margin-left:.55rem}.battle-progress{background:#f2f7ff;border:1px solid #ccdaed;border-radius:10px;padding:.7rem 1rem;margin-bottom:1rem}.battle-progress-label{display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:.45rem}.battle-progress-track{height:8px;background:#d8dee8;border-radius:99px;overflow:hidden}.battle-progress-fill{height:100%;background:#1262d6;border-radius:99px}.battle-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:1.15rem;box-shadow:0 6px 24px rgba(18,48,71,.05)}.enemy-panel{height:100%;display:flex;flex-direction:column;justify-content:center;border-right:1px solid var(--line);padding:1rem 1.25rem 1rem .4rem}.enemy-art{width:150px;height:150px;margin:0 auto 1rem;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle,#dff8f5,#eaf3ff 62%,#fff 63%);font-size:5.5rem;filter:drop-shadow(0 8px 14px rgba(9,100,232,.14))}.enemy-health-label{display:flex;justify-content:space-between;font-size:.75rem;font-weight:800;margin-bottom:.35rem}.enemy-health{height:10px;background:#dce2eb;border-radius:99px;overflow:hidden}.enemy-health>div{height:100%;background:linear-gradient(90deg,#22a65a,#58c77c);border-radius:99px}.battle-question{font-family:'DM Sans',sans-serif;font-size:1.3rem;font-weight:800;line-height:1.35;color:var(--navy);margin:.3rem 0 .7rem}.clue-row{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.85rem}.clue{background:#edf4ff;color:#075cce;border:1px solid #d6e3f8;border-radius:7px;padding:.3rem .55rem;font-size:.74rem;font-weight:700}
+[class*="st-key-enemy_panel_"]{border-right:1px solid var(--line);padding:1rem 1.25rem 1rem .4rem}[class*="st-key-enemy_panel_"] [data-testid="stImage"]{display:flex;justify-content:center}[class*="st-key-enemy_panel_"] img{border-radius:50%;box-shadow:0 8px 22px rgba(9,100,232,.12)}
 [class*="st-key-id_choice_"] button{min-height:78px!important;justify-content:flex-start!important;text-align:left!important;padding:.75rem 1rem!important;background:#fff!important;border:1.5px solid #80aaf0!important;color:var(--navy)!important;font-size:.9rem!important}
 [class*="st-key-id_choice_"][class*="_correct"] button{background:#e8f8ed!important;border:2px solid #299d4c!important;color:#126d32!important;opacity:1!important}
 [class*="st-key-id_choice_"][class*="_wrong"] button{background:#fdebec!important;border:2px solid #df4c56!important;color:#aa2530!important;opacity:1!important}
@@ -314,12 +316,30 @@ def id_quiz_complete():
     if st.button("Restart learning mode", icon=":material/replay:", type="primary", width="stretch"):
         reset_id_quiz()
 
-def render_enemy(is_correct: bool):
+ENEMY_ASSETS = tuple(Path(__file__).parent / "assets" / "enemies" / name for name in (
+    "cocci-cluster.png", "cocci-chain.png", "bacillus.png", "spiral.png"
+))
+
+
+def enemy_asset_for(question):
+    tags = set(question.tags)
+    if "clusters" in tags:
+        return ENEMY_ASSETS[0]
+    if "chains" in tags:
+        return ENEMY_ASSETS[1]
+    if "rods" in tags or "gram-negative" in tags:
+        return ENEMY_ASSETS[2]
+    return ENEMY_ASSETS[sum(map(ord, question.id)) % len(ENEMY_ASSETS)]
+
+
+def render_enemy(question, is_correct: bool):
     health = 60 if is_correct else 100
     enemy_label = "Enemy weakened" if is_correct else "Enemy health"
-    st.markdown(f'''<div class="enemy-panel"><div class="enemy-art">🦠</div>
+    with st.container(key=f"enemy_panel_{question.id}"):
+        st.image(enemy_asset_for(question), width=180)
+        st.markdown(f'''
     <div class="enemy-health-label"><span>{enemy_label.upper()}</span><span>{health}%</span></div>
-    <div class="enemy-health"><div style="width:{health}%"></div></div></div>''', unsafe_allow_html=True)
+    <div class="enemy-health"><div style="width:{health}%"></div></div>''', unsafe_allow_html=True)
 
 def render_id_choices(question, ordered_choices, display_letters, revealed: bool, selected_id: str | None):
     for row_start in (0, 2):
@@ -335,7 +355,7 @@ def render_id_choices(question, ordered_choices, display_letters, revealed: bool
                     status = "dim"
             with column.container(key=f"id_choice_{question.id}_{choice.id}_{status}"):
                 icon = ":material/check_circle:" if status == "correct" else (":material/cancel:" if status == "wrong" else None)
-                if st.button(f"{display_letters[choice.id]}   {choice.text}", key=f"answer-{question.id}-{choice.id}", icon=icon, disabled=revealed, width="stretch"):
+                if st.button(f"{display_letters[choice.id]}.  {choice.text}", key=f"answer-{question.id}-{choice.id}", icon=icon, disabled=revealed, width="stretch"):
                     record_id_answer(question.id, choice.id)
                     st.rerun()
 
@@ -378,7 +398,7 @@ def id_quiz():
     with st.container(border=True):
         enemy, answers = st.columns([.72, 2], gap="medium", vertical_alignment="center")
         with enemy:
-            render_enemy(is_correct)
+            render_enemy(question, is_correct)
         with answers:
             st.caption(f"{question.topic.upper()} · {question.difficulty.upper()}")
             st.markdown(f'<div class="battle-question">{html.escape(question.prompt)}</div>', unsafe_allow_html=True)
