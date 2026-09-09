@@ -40,9 +40,9 @@ class LearningStage:
 
 LEARNING_SEQUENCE = (
     LearningStage("identify", "Identify the enemy", "Classify bacteria using Gram stain, shape, arrangement, and key tests."),
-    LearningStage("classify", "Know your antimicrobial", "Recall drug class, mechanism target, route, brand/generic name, and Top 250 status."),
+    LearningStage("classify", "Know your antimicrobial", "Recall drug class, mechanism target, brand/generic name, and Top 250 status."),
     LearningStage("cover", "Choose effective coverage", "Match a named organism and clinical context to course-listed agents of choice."),
-    LearningStage("checkpoint", "Mixed checkpoint", "Retrieve identification, drug-family, route, and coverage facts without stage-specific hints."),
+    LearningStage("checkpoint", "Mixed checkpoint", "Retrieve identification, drug-family, mechanism, and coverage facts without stage-specific hints."),
 )
 
 
@@ -193,20 +193,20 @@ ID_QUIZ_01 = (
         ), "a",
         "The table pairs Augmentin with amoxicillin/clavulanate and marks it as a Top 250 medication.",
         "Augment amoxicillin with clavulanate.",
-        AGENTS_SOURCE, "Beta-lactam/beta-lactamase inhibitor combinations", ("brand-generic", "augmentin", "top-250", "oral"),
+        AGENTS_SOURCE, "Beta-lactam/beta-lactamase inhibitor combinations", ("brand-generic", "augmentin", "top-250"),
     ),
     BattleQuestion(
-        "id-012", "classify", "Route",
-        "Which medication is listed as oral and used for CDI only in the infectious-diarrhea section?",
+        "id-012", "classify", "Cell wall synthesis",
+        "Which antimicrobial is classified as a glycopeptide in the cell-wall synthesis section?",
         (
-            Choice("a", "Vancomycin", "Correct: oral vancomycin is labeled for CDI only in this section."),
-            Choice("b", "Daptomycin", "Daptomycin is listed as intravenous and is not in the CDI-only row."),
-            Choice("c", "Polymyxin B", "Polymyxin B is not listed as an oral CDI-only agent."),
-            Choice("d", "Gentamicin", "Gentamicin is listed as intravenous and is not a CDI-only therapy in the table."),
+            Choice("a", "Vancomycin", "Correct: vancomycin is listed as a glycopeptide that inhibits cell-wall synthesis."),
+            Choice("b", "Daptomycin", "Daptomycin is a lipopeptide that acts at the cell membrane."),
+            Choice("c", "Polymyxin B", "Polymyxin B is a polypeptide that acts at the cell membrane."),
+            Choice("d", "Gentamicin", "Gentamicin is an aminoglycoside that acts at the 30S ribosomal subunit."),
         ), "a",
-        "In the infectious-diarrhea section, vancomycin is specifically listed as oral for CDI only.",
-        "For this course table: CDI vancomycin goes by mouth.",
-        AGENTS_SOURCE, "Infectious diarrhea", ("route", "oral", "vancomycin", "cdi", "top-250"),
+        "Vancomycin is the glycopeptide listed under cell-wall synthesis in the course table.",
+        "VAN builds a wall: vancomycin = glycopeptide cell-wall inhibitor.",
+        AGENTS_SOURCE, "Cell wall synthesis - glycopeptides", ("glycopeptide", "vancomycin", "cell-wall", "top-250"),
     ),
     BattleQuestion(
         "id-013", "cover", "MSSA",
@@ -301,16 +301,16 @@ ID_QUIZ_01 = (
     ),
     BattleQuestion(
         "id-020", "checkpoint", "Integrated classification",
-        "Which complete match is correct according to the antimicrobial-agent table?",
+        "Which drug, ribosomal target, and antimicrobial class are correctly matched?",
         (
-            Choice("a", "Gentamicin - 30S aminoglycoside - IV", "Correct: all three features match the table."),
-            Choice("b", "Linezolid - 30S tetracycline - PO only", "Linezolid is a 50S oxazolidinone and is listed as IV and PO."),
-            Choice("c", "Daptomycin - glycopeptide - PO", "Daptomycin is a lipopeptide and is listed as IV."),
-            Choice("d", "Rifampin - folate synthesis inhibitor - topical only", "Rifampin is listed under RNA synthesis and as IV/PO."),
+            Choice("a", "Gentamicin - 30S - aminoglycoside", "Correct: all three features match the table."),
+            Choice("b", "Linezolid - 30S - tetracycline", "Linezolid is a 50S oxazolidinone."),
+            Choice("c", "Daptomycin - cell wall - glycopeptide", "Daptomycin is a lipopeptide that acts at the cell membrane."),
+            Choice("d", "Rifampin - folate synthesis - sulfonamide", "Rifampin is a rifamycin listed under RNA synthesis."),
         ), "a",
-        "Gentamicin is listed as an intravenous aminoglycoside acting at the 30S ribosomal subunit.",
-        "Gentamicin: aminoglycoside, thirty-S, IV.",
-        AGENTS_SOURCE, "Protein synthesis - 30S ribosomal subunit - aminoglycosides", ("gentamicin", "30s", "route", "checkpoint", "top-250"),
+        "Gentamicin is listed as an aminoglycoside acting at the 30S ribosomal subunit.",
+        "Gentamicin: aminoglycoside at thirty-S.",
+        AGENTS_SOURCE, "Protein synthesis - 30S ribosomal subunit - aminoglycosides", ("gentamicin", "30s", "checkpoint", "top-250"),
     ),
     BattleQuestion(
         "id-021", "checkpoint", "Brand and generic",
