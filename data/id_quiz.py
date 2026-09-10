@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 
-BattleStage = Literal["identify", "classify", "cover", "checkpoint"]
+BattleStage = Literal["identify", "classify", "mechanism", "cover", "brand"]
 
 
 @dataclass(frozen=True)
@@ -40,18 +40,68 @@ class LearningStage:
 
 LEARNING_SEQUENCE = (
     LearningStage("identify", "Identify the enemy", "Classify bacteria using Gram stain, shape, arrangement, and key tests."),
-    LearningStage("classify", "Know your antimicrobial", "Recall drug class, mechanism target, brand/generic name, and Top 250 status."),
+    LearningStage("classify", "Classify the antimicrobial", "Match antimicrobial agents to their drug classes."),
+    LearningStage("mechanism", "Find the target", "Match antimicrobial agents and classes to their cellular targets and mechanisms."),
     LearningStage("cover", "Choose effective coverage", "Match a named organism and clinical context to course-listed agents of choice."),
-    LearningStage("checkpoint", "Mixed checkpoint", "Retrieve identification, drug-family, mechanism, and coverage facts without stage-specific hints."),
+    LearningStage("brand", "Match brand and generic", "Recall both directions for the starred Top 250 brand and generic names."),
 )
 
 
 BACTERIA_SOURCE = "MOST V - Bacteria Identification Fall 2026"
 AGENTS_SOURCE = "MOST V - Course Antimicrobial Agents Fall 2026"
 ACTIVITY_SOURCE = "MOST V - Common Antibacterial Activity Fall 2026"
+TOP250_SOURCE = "PHM 516 Top 250 LIST_2026"
 
 
-ID_QUIZ_01 = (
+# Only entries marked with an asterisk in the professor's Top 250 document.
+# An empty brand tuple means the source document does not list a brand name.
+STARRED_BRAND_PAIRS = (
+    ("Penicillin VK", ("Veetids",)),
+    ("Penicillin G", ("Pfizerpen",)),
+    ("Penicillin G benzathine", ("Bicillin L-A",)),
+    ("Penicillin G procaine", ()),
+    ("Amoxicillin", ("Amoxil", "Moxatag")),
+    ("Cephalexin", ("Keflex",)),
+    ("Cefuroxime", ("Ceftin", "Zinacef")),
+    ("Ceftriaxone", ()),
+    ("Cefdinir", ("Omnicef",)),
+    ("Amoxicillin/clavulanate", ("Augmentin",)),
+    ("Piperacillin/tazobactam", ("Zosyn",)),
+    ("Vancomycin", ("Firvanq", "Vancocin")),
+    ("Bacitracin/neomycin/polymyxin B/trimethoprim", ("Neosporin", "Polytrim")),
+    ("Gentamicin", ()),
+    ("Doxycycline", ("Vibramycin", "Doxy 100")),
+    ("Minocycline", ("Minocin",)),
+    ("Erythromycin", ("Ery-Tab",)),
+    ("Azithromycin", ("Zithromax", "Z-Pak")),
+    ("Clarithromycin", ("Biaxin",)),
+    ("Fidaxomicin", ("Dificid",)),
+    ("Clindamycin", ("Cleocin",)),
+    ("Trimethoprim/sulfamethoxazole", ("Bactrim", "Septra")),
+    ("Metronidazole", ("Flagyl",)),
+    ("Mupirocin", ("Bactroban",)),
+    ("Nitrofurantoin", ("Macrobid", "Macrodantin")),
+    ("Chlorhexidine", ("Peridex", "Periogard", "Hibiclens", "Paroex")),
+    ("Levofloxacin", ("Levaquin",)),
+    ("Ciprofloxacin", ("Cipro", "Cipro XR")),
+    ("Ciprofloxacin - otic products", ("Cipro HC Otic", "Cetraxal")),
+    ("Moxifloxacin", ("Avelox", "Vigamox", "Moxeza")),
+    ("Gatifloxacin", ("Zymaxid", "Zymar")),
+    ("Rifaximin", ("Xifaxan",)),
+    ("Acyclovir", ("Zovirax",)),
+    ("Oseltamivir", ("Tamiflu",)),
+    ("Nirmatrelvir/ritonavir", ("Paxlovid",)),
+    ("COVID-19 mRNA vaccine", ("Comirnaty", "Spikevax")),
+    ("Influenza virus vaccine", ("Fluzone", "Afluria", "Fluad", "Flublok", "FluLaval", "Fluarix", "Flucelvax")),
+    ("Haemophilus influenzae type B vaccine", ("PedvaxHIB", "Hiberix", "ActHIB")),
+    ("Pneumococcal vaccines", ("Prevnar 13", "Pneumovax 23", "Vaxneuvance", "Prevnar 20", "Capvaxive")),
+    ("Meningococcal vaccines", ("MenQuadfi", "Menveo", "Trumenba", "Bexsero", "Penbraya")),
+    ("Respiratory syncytial virus vaccines", ("mResvia", "Abrysvo", "Arexvy")),
+    ("Phenazopyridine", ("Pyridium", "AZO", "Uristat", "Baridium")),
+)
+
+
+CORE_QUESTIONS = (
     BattleQuestion(
         "id-001", "identify", "Gram-positive cocci",
         "The enemy is a Gram-positive coccus in clusters and is coagulase-positive. Identify it.",
@@ -157,7 +207,7 @@ ID_QUIZ_01 = (
         AGENTS_SOURCE, "Cell wall synthesis - beta-lactams - monobactam", ("beta-lactam", "monobactam", "aztreonam"),
     ),
     BattleQuestion(
-        "id-009", "classify", "Protein synthesis",
+        "id-009", "mechanism", "Protein synthesis",
         "Which drug is listed as a 30S tetracycline?",
         (
             Choice("a", "Doxycycline", "Correct: doxycycline is listed in the 30S tetracycline group."),
@@ -170,7 +220,7 @@ ID_QUIZ_01 = (
         AGENTS_SOURCE, "Protein synthesis - 30S ribosomal subunit - tetracyclines", ("30s", "tetracycline", "doxycycline", "top-250"),
     ),
     BattleQuestion(
-        "id-010", "classify", "Protein synthesis",
+        "id-010", "mechanism", "Protein synthesis",
         "Which antimicrobial is a 50S oxazolidinone?",
         (
             Choice("a", "Linezolid", "Correct: linezolid is listed as a 50S oxazolidinone."),
@@ -183,7 +233,7 @@ ID_QUIZ_01 = (
         AGENTS_SOURCE, "Protein synthesis - 50S ribosomal subunit - oxazolidinones", ("50s", "oxazolidinone", "linezolid"),
     ),
     BattleQuestion(
-        "id-011", "classify", "Brand and generic",
+        "id-011", "brand", "Brand and generic",
         "Which generic medication is paired with the brand name Augmentin?",
         (
             Choice("a", "Amoxicillin/clavulanate", "Correct: Augmentin is the listed brand for amoxicillin/clavulanate."),
@@ -196,7 +246,7 @@ ID_QUIZ_01 = (
         AGENTS_SOURCE, "Beta-lactam/beta-lactamase inhibitor combinations", ("brand-generic", "augmentin", "top-250"),
     ),
     BattleQuestion(
-        "id-012", "classify", "Cell wall synthesis",
+        "id-012", "mechanism", "Cell wall synthesis",
         "Which antimicrobial is classified as a glycopeptide in the cell-wall synthesis section?",
         (
             Choice("a", "Vancomycin", "Correct: vancomycin is listed as a glycopeptide that inhibits cell-wall synthesis."),
@@ -287,7 +337,7 @@ ID_QUIZ_01 = (
         ACTIVITY_SOURCE, "Atypical organisms", ("atypical", "azithromycin", "doxycycline", "coverage"),
     ),
     BattleQuestion(
-        "id-019", "checkpoint", "Integrated identification",
+        "id-019", "identify", "Integrated identification",
         "A culture clue shows Gram-positive cocci in pairs/chains with nonhemolytic behavior. Which pair belongs to that branch?",
         (
             Choice("a", "Enterococcus faecium and Enterococcus faecalis", "Correct: both Enterococcus species are shown in the nonhemolytic branch."),
@@ -300,7 +350,7 @@ ID_QUIZ_01 = (
         BACTERIA_SOURCE, "Gram-positive bacteria - pairs/chains - nonhemolytic", ("enterococcus", "nonhemolytic", "checkpoint"),
     ),
     BattleQuestion(
-        "id-020", "checkpoint", "Integrated classification",
+        "id-020", "mechanism", "Integrated classification",
         "Which drug, ribosomal target, and antimicrobial class are correctly matched?",
         (
             Choice("a", "Gentamicin - 30S - aminoglycoside", "Correct: all three features match the table."),
@@ -313,7 +363,7 @@ ID_QUIZ_01 = (
         AGENTS_SOURCE, "Protein synthesis - 30S ribosomal subunit - aminoglycosides", ("gentamicin", "30s", "checkpoint", "top-250"),
     ),
     BattleQuestion(
-        "id-021", "checkpoint", "Brand and generic",
+        "id-021", "brand", "Brand and generic",
         "Which brand/generic pairing is correct?",
         (
             Choice("a", "Zosyn - piperacillin/tazobactam", "Correct: Zosyn is paired with piperacillin/tazobactam."),
@@ -326,7 +376,7 @@ ID_QUIZ_01 = (
         AGENTS_SOURCE, "Beta-lactam/beta-lactamase inhibitor combinations", ("brand-generic", "zosyn", "checkpoint", "top-250"),
     ),
     BattleQuestion(
-        "id-022", "checkpoint", "Coverage distinction",
+        "id-022", "cover", "Coverage distinction",
         "Which statement correctly distinguishes the course-listed MRSA categories?",
         (
             Choice("a", "Doxycycline is listed for MRSA SSTI/CAP; vancomycin is listed for serious MRSA infection.", "Correct: this matches the two MRSA subsections."),
@@ -339,7 +389,7 @@ ID_QUIZ_01 = (
         ACTIVITY_SOURCE, "Gram-positive cocci - MRSA", ("mrsa", "context", "checkpoint"),
     ),
     BattleQuestion(
-        "id-023", "checkpoint", "Restriction",
+        "id-023", "cover", "Restriction",
         "Which agent carries the course-sheet reminder 'cystitis only' when used as an Enterococcus faecalis UTI alternative?",
         (
             Choice("a", "Nitrofurantoin", "Correct: nitrofurantoin is marked cystitis only in this context."),
@@ -352,7 +402,7 @@ ID_QUIZ_01 = (
         ACTIVITY_SOURCE, "Enterococcus faecalis - urinary tract infections", ("enterococcus", "nitrofurantoin", "cystitis", "checkpoint"),
     ),
     BattleQuestion(
-        "id-024", "checkpoint", "Mechanism",
+        "id-024", "mechanism", "Mechanism",
         "Which mechanism-target pairing is correct according to the course antimicrobial table?",
         (
             Choice("a", "Rifampin - RNA synthesis", "Correct: rifampin is listed in the RNA-synthesis section."),
@@ -365,6 +415,91 @@ ID_QUIZ_01 = (
         AGENTS_SOURCE, "RNA synthesis - rifamycin", ("mechanism", "rifampin", "checkpoint"),
     ),
 )
+
+
+def _brand_text(brands: tuple[str, ...]) -> str:
+    return ", ".join(brands)
+
+
+def _build_brand_questions() -> tuple[BattleQuestion, ...]:
+    """Build one grounded recall question for each testable, non-duplicate pair."""
+    testable = [pair for pair in STARRED_BRAND_PAIRS if pair[1]]
+    already_tested = {"Amoxicillin/clavulanate", "Piperacillin/tazobactam"}
+    generated: list[BattleQuestion] = []
+    for index, (generic, brands) in enumerate(testable):
+        if generic in already_tested:
+            continue
+        distractors = [testable[(index + offset) % len(testable)] for offset in (1, 2, 3)]
+        brand_names = _brand_text(brands)
+        if index % 2 == 0:
+            prompt = f"Which brand name or brand-name group matches {generic}?"
+            correct_text = brand_names
+            wrong_texts = [_brand_text(item_brands) for _, item_brands in distractors]
+        else:
+            prompt = f"Which generic entry matches the brand name(s) {brand_names}?"
+            correct_text = generic
+            wrong_texts = [item_generic for item_generic, _ in distractors]
+        choices = (
+            Choice("a", correct_text, f"Correct: {generic} is paired with {brand_names} on the starred Top 250 list."),
+            Choice("b", wrong_texts[0], f"This does not match {generic}; the listed brand pairing is {brand_names}."),
+            Choice("c", wrong_texts[1], f"This does not match {generic}; the listed brand pairing is {brand_names}."),
+            Choice("d", wrong_texts[2], f"This does not match {generic}; the listed brand pairing is {brand_names}."),
+        )
+        generated.append(BattleQuestion(
+            f"brand-{index + 1:03d}", "brand", "Brand and generic", prompt, choices, "a",
+            f"The starred Top 250 list pairs {generic} with {brand_names}.",
+            f"{generic} ↔ {brand_names}", TOP250_SOURCE, "Starred Top 250 entries",
+            ("brand-generic", "top-250", "starred"),
+        ))
+    return tuple(generated)
+
+
+SUPPLEMENTAL_FACTS = (
+    # Classification
+    ("class-001", "classify", "Penicillins", "Which class contains Penicillin VK?", "Beta-lactam penicillin", ("Macrolide", "Aminoglycoside", "Fluoroquinolone"), "Penicillin VK is a beta-lactam penicillin.", "Penicillin names its own beta-lactam family.", AGENTS_SOURCE, "Cell wall synthesis - beta-lactams - penicillins"),
+    ("class-002", "classify", "Combination agents", "How is piperacillin/tazobactam classified?", "Beta-lactam/beta-lactamase inhibitor combination", ("Glycopeptide", "Lipopeptide", "Oxazolidinone"), "Piperacillin/tazobactam combines a beta-lactam with a beta-lactamase inhibitor.", "PIP/TAZO = beta-lactam plus protector.", AGENTS_SOURCE, "Beta-lactam/beta-lactamase inhibitor combinations"),
+    ("class-003", "classify", "Glycopeptides", "Which class contains vancomycin?", "Glycopeptide", ("Lipopeptide", "Polypeptide", "Macrolide"), "Vancomycin is classified as a glycopeptide.", "VAN carries the glycopeptide shield.", AGENTS_SOURCE, "Cell wall synthesis - glycopeptides"),
+    ("class-004", "classify", "Lipopeptides", "Which class contains daptomycin?", "Lipopeptide", ("Glycopeptide", "Tetracycline", "Rifamycin"), "Daptomycin is classified as a lipopeptide.", "DAPTO = lipopeptide.", AGENTS_SOURCE, "Cell membrane - lipopeptides"),
+    ("class-005", "classify", "Aminoglycosides", "Which class contains gentamicin?", "Aminoglycoside", ("Macrolide", "Lincosamide", "Oxazolidinone"), "Gentamicin is classified as an aminoglycoside.", "Gentamicin joins the amino-glycosides.", AGENTS_SOURCE, "Protein synthesis - 30S - aminoglycosides"),
+    ("class-006", "classify", "Tetracyclines", "Which class contains doxycycline?", "Tetracycline", ("Macrolide", "Fluoroquinolone", "Glycopeptide"), "Doxycycline is classified as a tetracycline.", "DOXY cycles with the tetracyclines.", AGENTS_SOURCE, "Protein synthesis - 30S - tetracyclines"),
+    ("class-007", "classify", "Macrolides", "Which class contains azithromycin?", "Macrolide", ("Aminoglycoside", "Lincosamide", "Rifamycin"), "Azithromycin is classified as a macrolide.", "The -thromycin trio belongs to macrolides.", AGENTS_SOURCE, "Protein synthesis - 50S - macrolides"),
+    ("class-008", "classify", "Lincosamides", "Which class contains clindamycin?", "Lincosamide", ("Oxazolidinone", "Tetracycline", "Fluoroquinolone"), "Clindamycin is classified as a lincosamide.", "CLINDA links to lincosamide.", AGENTS_SOURCE, "Protein synthesis - 50S - lincosamides"),
+    ("class-009", "classify", "Oxazolidinones", "Which class contains linezolid?", "Oxazolidinone", ("Macrolide", "Aminoglycoside", "Glycopeptide"), "Linezolid is classified as an oxazolidinone.", "LINEZOLID lines up with oxazolidinones.", AGENTS_SOURCE, "Protein synthesis - 50S - oxazolidinones"),
+    ("class-010", "classify", "Fluoroquinolones", "Which class contains ciprofloxacin?", "Fluoroquinolone", ("Rifamycin", "Nitroimidazole", "Sulfonamide"), "Ciprofloxacin is classified as a fluoroquinolone.", "The -floxacin ending signals fluoroquinolone.", AGENTS_SOURCE, "DNA synthesis - fluoroquinolones"),
+    # Mechanism and target
+    ("mech-001", "mechanism", "Cell wall", "What is the primary target category of penicillins?", "Cell wall synthesis", ("Cell membrane", "DNA synthesis", "Folate synthesis"), "Penicillins inhibit bacterial cell wall synthesis.", "Penicillins break the wall.", AGENTS_SOURCE, "Cell wall synthesis - penicillins"),
+    ("mech-002", "mechanism", "Cell wall", "What is the primary target category of carbapenems?", "Cell wall synthesis", ("RNA synthesis", "30S protein synthesis", "Cell membrane"), "Carbapenems are beta-lactams that inhibit cell wall synthesis.", "Carbapenems crack the wall.", AGENTS_SOURCE, "Cell wall synthesis - carbapenems"),
+    ("mech-003", "mechanism", "Cell membrane", "What is the primary target category of daptomycin?", "Cell membrane", ("Cell wall synthesis", "DNA synthesis", "Folate synthesis"), "Daptomycin acts at the bacterial cell membrane.", "DAPTO disrupts the membrane.", AGENTS_SOURCE, "Cell membrane - lipopeptides"),
+    ("mech-004", "mechanism", "30S", "Which ribosomal subunit is targeted by gentamicin?", "30S", ("50S", "DNA gyrase", "RNA polymerase"), "Gentamicin is an aminoglycoside that acts at the 30S subunit.", "Aminoglycosides aim at thirty-S.", AGENTS_SOURCE, "Protein synthesis - 30S - aminoglycosides"),
+    ("mech-005", "mechanism", "50S", "Which ribosomal subunit is targeted by azithromycin?", "50S", ("30S", "Cell membrane", "Folate pathway"), "Azithromycin is a macrolide that acts at the 50S subunit.", "Macrolides march to fifty-S.", AGENTS_SOURCE, "Protein synthesis - 50S - macrolides"),
+    ("mech-006", "mechanism", "DNA synthesis", "Which target category is associated with ciprofloxacin?", "DNA synthesis", ("RNA synthesis", "Cell wall synthesis", "50S protein synthesis"), "Ciprofloxacin is listed among DNA-synthesis inhibitors.", "CIPRO clips DNA replication.", AGENTS_SOURCE, "DNA synthesis - fluoroquinolones"),
+    ("mech-007", "mechanism", "RNA synthesis", "Which target category is associated with rifampin?", "RNA synthesis", ("DNA synthesis", "Folate synthesis", "Cell membrane"), "Rifampin is a rifamycin that inhibits RNA synthesis.", "RIF writes on RNA.", AGENTS_SOURCE, "RNA synthesis - rifamycins"),
+    # Identification
+    ("identify-001", "identify", "Group B Streptococcus", "Which organism is Group B and beta-hemolytic?", "Streptococcus agalactiae", ("Streptococcus pyogenes", "Streptococcus pneumoniae", "Enterococcus faecalis"), "S. agalactiae is the Group B beta-hemolytic streptococcus.", "Agalactiae = Group B.", BACTERIA_SOURCE, "Gram-positive pairs/chains - beta-hemolytic"),
+    ("identify-002", "identify", "Gram-positive bacilli", "Which organism is an aerobic Gram-positive bacillus?", "Listeria monocytogenes", ("Neisseria species", "Bacteroides species", "Mycoplasma species"), "Listeria monocytogenes is placed among aerobic Gram-positive bacilli.", "Listeria = positive aerobic rod.", BACTERIA_SOURCE, "Gram-positive bacteria - aerobic bacilli"),
+    ("identify-003", "identify", "Enteric bacilli", "Which organism is Gram-negative, lactose-fermenting, and oxidase-negative?", "Escherichia coli", ("Pseudomonas aeruginosa", "Neisseria species", "Bacteroides species"), "E. coli is in the lactose-fermenting, oxidase-negative Gram-negative bacillus branch.", "E. coli ferments lactose but stays oxidase negative.", BACTERIA_SOURCE, "Gram-negative bacilli - lactose fermenting"),
+    ("identify-004", "identify", "Enteric bacilli", "Where does Enterobacter species belong on the course identification map?", "Gram-negative lactose-fermenting oxidase-negative bacilli", ("Gram-positive aerobic bacilli", "Gram-negative oxidase-positive nonfermenters", "Aerobic atypical bacteria"), "Enterobacter is mapped as Gram-negative, lactose-fermenting, oxidase-negative bacilli.", "Enterobacter enters the lactose-positive, oxidase-negative branch.", BACTERIA_SOURCE, "Gram-negative bacilli - lactose fermenting"),
+    ("identify-005", "identify", "Diplococci", "Which organism is classified as an aerobic Gram-negative diplococcus?", "Neisseria species", ("Listeria monocytogenes", "Staphylococcus aureus", "Mycoplasma species"), "Neisseria is placed among aerobic Gram-negative diplococci.", "Neisseria = negative diplococci.", BACTERIA_SOURCE, "Gram-negative bacteria - aerobic diplococci"),
+    # Reverse coverage recall
+    ("cover-001", "cover", "MSSA", "First-generation cephalosporins are course-listed agents of choice for which enemy?", "MSSA", ("Serious MRSA infection", "Pseudomonas aeruginosa", "Atypical pneumonia"), "First-generation cephalosporins are listed as agents of choice for MSSA.", "First-generation cephalosporin → MSSA.", ACTIVITY_SOURCE, "Gram-positive cocci - MSSA"),
+    ("cover-002", "cover", "MRSA", "Vancomycin is course-listed as an agent of choice for which serious infection?", "Serious MRSA infection", ("Penicillin-susceptible S. pneumoniae", "Atypical pneumonia", "Uncomplicated cystitis only"), "Vancomycin is listed as an agent of choice for serious MRSA infection.", "Serious MRSA raises the vancomycin shield.", ACTIVITY_SOURCE, "Gram-positive cocci - MRSA - serious infections"),
+    ("cover-003", "cover", "Listeria", "Ampicillin is course-listed as an agent of choice for which organism?", "Listeria monocytogenes", ("Pseudomonas aeruginosa", "MRSA", "Mycoplasma pneumoniae"), "Ampicillin is listed as an agent of choice for Listeria monocytogenes.", "Listeria likes ampicillin.", ACTIVITY_SOURCE, "Gram-positive bacilli - Listeria monocytogenes"),
+    ("cover-004", "cover", "Pseudomonas", "Cefepime is course-listed as an agent of choice for which Gram-negative enemy?", "Pseudomonas aeruginosa", ("Bacteroides species", "Chlamydia pneumoniae", "Enterococcus faecalis"), "Cefepime is included among agents of choice for Pseudomonas aeruginosa.", "Pseudomonas → cefepime in the primary lineup.", ACTIVITY_SOURCE, "Gram-negative bacilli - Pseudomonas aeruginosa"),
+)
+
+
+def _build_supplemental_questions() -> tuple[BattleQuestion, ...]:
+    return tuple(BattleQuestion(
+        question_id, stage, topic, prompt,
+        (Choice("a", correct, f"Correct: {explanation}"),
+         Choice("b", distractors[0], f"This does not fit. {explanation}"),
+         Choice("c", distractors[1], f"This does not fit. {explanation}"),
+         Choice("d", distractors[2], f"This does not fit. {explanation}")),
+        "a", explanation, hook, source, section, (stage, "id-fundamentals")
+    ) for question_id, stage, topic, prompt, correct, distractors, explanation, hook, source, section in SUPPLEMENTAL_FACTS)
+
+
+ID_QUIZ_01 = CORE_QUESTIONS + _build_supplemental_questions() + _build_brand_questions()
 
 
 QUESTIONS_BY_ID = {question.id: question for question in ID_QUIZ_01}
@@ -385,6 +520,22 @@ def display_questions(attempt_seed: int = 0) -> tuple[BattleQuestion, ...]:
             ).digest(),
         ))
     return tuple(ordered_questions)
+
+
+def simulation_questions(attempt_seed: int = 0, per_stage: int = 12) -> tuple[BattleQuestion, ...]:
+    """Draw a balanced, fully shuffled ID Fundamentals quiz simulation."""
+    selected: list[BattleQuestion] = []
+    for stage in LEARNING_SEQUENCE:
+        candidates = [question for question in display_questions(attempt_seed) if question.stage == stage.id]
+        if len(candidates) < per_stage:
+            raise ValueError(f"Not enough {stage.id} questions for a balanced simulation")
+        selected.extend(candidates[:per_stage])
+    return tuple(sorted(
+        selected,
+        key=lambda question: hashlib.sha256(
+            f"simulation:{attempt_seed}:{question.id}".encode()
+        ).digest(),
+    ))
 
 
 def display_choices(question: BattleQuestion, attempt_seed: int = 0) -> tuple[Choice, Choice, Choice, Choice]:
