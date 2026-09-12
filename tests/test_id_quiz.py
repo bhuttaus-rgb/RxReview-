@@ -60,6 +60,19 @@ def test_quiz_does_not_test_routes_of_administration():
         assert not route_pattern.search(assessed_text)
 
 
+def test_coverage_questions_only_teach_agents_of_choice():
+    for question in questions_for_stage("cover"):
+        learning_text = " ".join([
+            question.topic,
+            question.prompt,
+            *(choice.feedback for choice in question.choices),
+            question.explanation,
+            question.memory_hook,
+            *question.tags,
+        ]).lower()
+        assert "alternative" not in learning_text
+
+
 def test_display_order_is_stable_and_correct_answers_are_distributed():
     correct_positions = []
     for question in ID_QUIZ_01:
