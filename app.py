@@ -5,6 +5,7 @@ from pathlib import Path
 import streamlit as st
 from data.cases import CASE_01, ClinicalCase, MedicationRule
 from data.id_quiz import ID_QUIZ_01, LEARNING_SEQUENCE, QUESTIONS_BY_ID, display_choices, display_questions, questions_for_stage
+from data.khashan_quiz import KHASHAN_QUESTIONS, QUESTIONS_BY_ID as KHASHAN_BY_ID, shuffled_questions as shuffled_khashan_questions
 from scoring import score_case, xp_earned
 
 st.set_page_config(page_title="PharmReview", page_icon="💊", layout="wide")
@@ -72,7 +73,9 @@ def init_state():
     defaults = {"app_mode":"case", "screen":"overview", "med_index":0, "answers":{}, "submitted":False,
                 "id_index":0, "id_answers":{}, "id_selected":None, "id_revealed":False,
                 "id_streak":0, "id_best_streak":0, "id_xp":0,
-                "id_question_queue":None, "id_mastered":[]}
+                "id_question_queue":None, "id_mastered":[],
+                "kh_index":0, "kh_answers":{}, "kh_selected":[], "kh_revealed":False,
+                "kh_question_queue":None, "kh_xp":0, "kh_streak":0, "kh_best_streak":0}
     for key, value in defaults.items():
         if key not in st.session_state: st.session_state[key] = value
     # One seed keeps both question and choice shuffles stable during an attempt.
@@ -82,6 +85,10 @@ def init_state():
         st.session_state.id_question_queue = [
             question.id for question in display_questions(st.session_state.id_choice_seed)
         ]
+    if "kh_seed" not in st.session_state:
+        st.session_state.kh_seed = secrets.randbits(64)
+    if st.session_state.kh_question_queue is None:
+        st.session_state.kh_question_queue = [question.id for question in shuffled_khashan_questions(st.session_state.kh_seed)]
 
 def reset():
     for key in ("screen","med_index","answers","submitted"): st.session_state.pop(key, None)
@@ -94,6 +101,13 @@ def reset_id_quiz():
     st.session_state.app_mode = "id"
     st.rerun()
 
+def reset_khashan_quiz():
+    for key in ("kh_index", "kh_answers", "kh_selected", "kh_revealed", "kh_question_queue", "kh_xp", "kh_streak", "kh_best_streak"):
+        st.session_state.pop(key, None)
+    st.session_state.kh_seed = secrets.randbits(64)
+    st.session_state.app_mode = "khashan"
+    st.rerun()
+
 def sidebar(case: ClinicalCase):
     with st.sidebar:
         st.markdown("## ⚕ PharmReview")
@@ -104,6 +118,8 @@ def sidebar(case: ClinicalCase):
         st.markdown(":material/inventory_2: Case Library")
         if st.button("ID Quiz Prep", icon=":material/biotech:", width="stretch"):
             st.session_state.app_mode = "id"; st.rerun()
+        if st.button("Khashan Midterm Review", icon=":material/science:", width="stretch"):
+            st.session_state.app_mode = "khashan"; st.rerun()
         st.markdown(":material/trending_up: My Progress")
         st.markdown(":material/bookmark: Saved Topics")
         st.markdown(":material/menu_book: References")
@@ -111,11 +127,13 @@ def sidebar(case: ClinicalCase):
         st.divider()
         st.caption("CURRENT LEVEL")
         st.markdown("**Student Pharmacist**")
-        earned = st.session_state.id_xp if st.session_state.app_mode == "id" else (xp_earned(case, st.session_state.answers) if st.session_state.submitted else 0)
+        earned = st.session_state.id_xp if st.session_state.app_mode == "id" else (st.session_state.kh_xp if st.session_state.app_mode == "khashan" else (xp_earned(case, st.session_state.answers) if st.session_state.submitted else 0))
         st.caption("XP to next level")
         st.progress(min((650+earned) / 1000, 1.0)); st.caption(f"{650+earned} / 1000 XP")
         if st.session_state.app_mode == "id":
             if st.button("Restart ID quiz", icon=":material/restart_alt:", width="stretch"): reset_id_quiz()
+        elif st.session_state.app_mode == "khashan":
+            if st.button("Restart midterm review", icon=":material/restart_alt:", width="stretch"): reset_khashan_quiz()
         elif st.button("Reset case", icon=":material/restart_alt:", width="stretch"): reset()
 
 def patient_header(case: ClinicalCase):
@@ -435,8 +453,108 @@ def id_quiz():
     if st.button("Next battle", icon=":material/arrow_forward:", type="primary", disabled=not revealed, width="stretch"):
         advance_id_battle()
 
+
+KHASHAN_ASSET_DIR = Path(__file__).parent / "assets" / "khashan"
+
+
+def khashan_complete():
+    correct = sum(tuple(sorted(answer)) == KHASHAN_BY_ID[question_id].correct for question_id, answer in st.session_state.kh_answers.items())
+    total = len(KHASHAN_QUESTIONS)
+    st.markdown(f'''<div class="quiz-complete"><div class="eyebrow" style="color:#a9d4ff">KHASHAN MIDTERM REVIEW</div>
+    <h1>Review complete</h1><div class="quiz-score">{correct} / {total}</div><p>{round(correct / total * 100)}% correct · +{st.session_state.kh_xp} XP</p>
+    <p>Best streak: {st.session_state.kh_best_streak}</p></div>''', unsafe_allow_html=True)
+    missed = [KHASHAN_BY_ID[question_id] for question_id in st.session_state.kh_question_queue if tuple(sorted(st.session_state.kh_answers.get(question_id, ()))) != KHASHAN_BY_ID[question_id].correct]
+    if missed:
+        st.markdown("### Concepts to revisit")
+        for question in missed:
+            st.markdown(f"- **{question.topic}:** {question.memory_hook}")
+    else:
+        st.success("Perfect review — every concept was mastered.", icon=":material/trophy:")
+    if st.button("Retake with shuffled questions", icon=":material/replay:", type="primary", width="stretch"):
+        reset_khashan_quiz()
+
+
+def render_khashan_images(question):
+    if not question.images:
+        return
+    if question.image_choices:
+        columns = st.columns(len(question.images))
+        for index, (column, image_name) in enumerate(zip(columns, question.images)):
+            with column:
+                st.image(KHASHAN_ASSET_DIR / image_name, width="stretch")
+                st.markdown(f"<div style='text-align:center;font-weight:800'>Structure {chr(65 + index)}</div>", unsafe_allow_html=True)
+    else:
+        columns = st.columns([1, 3, 1])
+        with columns[1]:
+            for image_name in question.images:
+                st.image(KHASHAN_ASSET_DIR / image_name, width="stretch")
+
+
+def khashan_quiz():
+    queue = st.session_state.kh_question_queue
+    if st.session_state.kh_index >= len(queue):
+        khashan_complete()
+        return
+    question = KHASHAN_BY_ID[queue[st.session_state.kh_index]]
+    selected = set(st.session_state.kh_selected)
+    revealed = st.session_state.kh_revealed
+    position = st.session_state.kh_index + 1
+    percent = round((position - 1) / len(queue) * 100)
+    st.markdown(f'''<div class="battle-top"><div><h1>Khashan Midterm Review <span class="learning-badge">LEARNING MODE</span></h1></div>
+    <div><b>Question {position} of {len(queue)}</b></div></div>
+    <div class="battle-progress"><div class="battle-progress-label"><b>{html.escape(question.topic)}</b><span>{percent}% complete</span></div>
+    <div class="battle-progress-track"><div class="battle-progress-fill" style="width:{percent}%"></div></div></div>''', unsafe_allow_html=True)
+    with st.container(border=True):
+        render_khashan_images(question)
+        st.markdown(f'<div class="battle-question">{html.escape(question.prompt)}</div>', unsafe_allow_html=True)
+        if len(question.correct) > 1:
+            st.caption("Select all that apply, then submit your answer.")
+        for index, choice in enumerate(question.choices):
+            is_selected = index in selected
+            marker = "✓ " if is_selected else ""
+            if st.button(f"{marker}{chr(65 + index)}.  {choice}", key=f"kh-choice-{question.id}-{index}", disabled=revealed, width="stretch"):
+                if len(question.correct) == 1:
+                    selected = {index}
+                elif index in selected:
+                    selected.remove(index)
+                else:
+                    selected.add(index)
+                st.session_state.kh_selected = sorted(selected)
+                st.rerun()
+        if not revealed and st.button("Submit answer", icon=":material/check:", type="primary", disabled=not selected, width="stretch"):
+            answer = tuple(sorted(selected))
+            correct = answer == question.correct
+            st.session_state.kh_answers[question.id] = answer
+            st.session_state.kh_revealed = True
+            if correct:
+                st.session_state.kh_streak += 1
+                st.session_state.kh_xp += 20
+                st.session_state.kh_best_streak = max(st.session_state.kh_best_streak, st.session_state.kh_streak)
+            else:
+                st.session_state.kh_streak = 0
+            st.rerun()
+    if revealed:
+        answer = tuple(sorted(st.session_state.kh_selected))
+        is_correct = answer == question.correct
+        correct_letters = ", ".join(chr(65 + index) for index in question.correct)
+        feedback_class = "correct" if is_correct else "wrong"
+        title = "CORRECT" if is_correct else f"NOT QUITE · CORRECT ANSWER: {correct_letters}"
+        st.markdown(f'''<div class="battle-feedback {feedback_class}"><div class="battle-feedback-title">{title}</div>
+        <div class="battle-feedback-copy">{html.escape(question.explanation)}</div>
+        <div class="battle-feedback-grid"><div class="battle-feedback-section"><b>KEY CONCEPT</b>{html.escape(question.topic)}</div>
+        <div class="battle-feedback-section"><b>MEMORY HOOK</b><div class="battle-feedback-copy">{html.escape(question.memory_hook)}</div>
+        <div class="battle-feedback-source">Source: Note Sep 22, 2026 · Khashan midterm material</div></div></div></div>''', unsafe_allow_html=True)
+        st.markdown(f"**Streak:** {st.session_state.kh_streak} &nbsp;&nbsp; **XP:** +{st.session_state.kh_xp}")
+        if st.button("Next question", icon=":material/arrow_forward:", type="primary", width="stretch"):
+            st.session_state.kh_index += 1
+            st.session_state.kh_selected = []
+            st.session_state.kh_revealed = False
+            st.rerun()
+
 init_state(); sidebar(CASE_01)
 if st.session_state.app_mode == "id":
     id_quiz()
+elif st.session_state.app_mode == "khashan":
+    khashan_quiz()
 else:
     {"overview":overview,"review":review,"confirm":confirm,"results":results}[st.session_state.screen](CASE_01)
