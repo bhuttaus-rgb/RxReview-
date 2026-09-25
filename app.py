@@ -6,6 +6,7 @@ import streamlit as st
 from data.cases import CASE_01, ClinicalCase, MedicationRule
 from data.id_quiz import ID_QUIZ_01, LEARNING_SEQUENCE, QUESTIONS_BY_ID, display_choices, display_questions, questions_for_stage
 from data.khashan_quiz import KHASHAN_QUESTIONS, QUESTIONS_BY_ID as KHASHAN_BY_ID, shuffled_questions as shuffled_khashan_questions
+from data.salgado_quiz import SALGADO_QUESTIONS, QUESTIONS_BY_ID as SALGADO_BY_ID, shuffled_questions as shuffled_salgado_questions
 from scoring import score_case, xp_earned
 
 st.set_page_config(page_title="PharmReview", page_icon="💊", layout="wide")
@@ -75,7 +76,9 @@ def init_state():
                 "id_streak":0, "id_best_streak":0, "id_xp":0,
                 "id_question_queue":None, "id_mastered":[],
                 "kh_index":0, "kh_answers":{}, "kh_selected":[], "kh_revealed":False,
-                "kh_question_queue":None, "kh_xp":0, "kh_streak":0, "kh_best_streak":0}
+                "kh_question_queue":None, "kh_xp":0, "kh_streak":0, "kh_best_streak":0,
+                "sg_index":0, "sg_answers":{}, "sg_selected":[], "sg_revealed":False,
+                "sg_question_queue":None, "sg_xp":0, "sg_streak":0, "sg_best_streak":0}
     for key, value in defaults.items():
         if key not in st.session_state: st.session_state[key] = value
     # One seed keeps both question and choice shuffles stable during an attempt.
@@ -89,6 +92,10 @@ def init_state():
         st.session_state.kh_seed = secrets.randbits(64)
     if st.session_state.kh_question_queue is None:
         st.session_state.kh_question_queue = [question.id for question in shuffled_khashan_questions(st.session_state.kh_seed)]
+    if "sg_seed" not in st.session_state:
+        st.session_state.sg_seed = secrets.randbits(64)
+    if st.session_state.sg_question_queue is None:
+        st.session_state.sg_question_queue = [question.id for question in shuffled_salgado_questions(st.session_state.sg_seed)]
 
 def reset():
     for key in ("screen","med_index","answers","submitted"): st.session_state.pop(key, None)
@@ -108,6 +115,13 @@ def reset_khashan_quiz():
     st.session_state.app_mode = "khashan"
     st.rerun()
 
+def reset_salgado_quiz():
+    for key in ("sg_index", "sg_answers", "sg_selected", "sg_revealed", "sg_question_queue", "sg_xp", "sg_streak", "sg_best_streak"):
+        st.session_state.pop(key, None)
+    st.session_state.sg_seed = secrets.randbits(64)
+    st.session_state.app_mode = "salgado"
+    st.rerun()
+
 def sidebar(case: ClinicalCase):
     with st.sidebar:
         st.markdown("## ⚕ PharmReview")
@@ -120,6 +134,8 @@ def sidebar(case: ClinicalCase):
             st.session_state.app_mode = "id"; st.rerun()
         if st.button("Khashan Midterm Review", icon=":material/science:", width="stretch"):
             st.session_state.app_mode = "khashan"; st.rerun()
+        if st.button("Salgado Midterm Review", icon=":material/clinical_notes:", width="stretch"):
+            st.session_state.app_mode = "salgado"; st.rerun()
         st.markdown(":material/trending_up: My Progress")
         st.markdown(":material/bookmark: Saved Topics")
         st.markdown(":material/menu_book: References")
@@ -127,13 +143,15 @@ def sidebar(case: ClinicalCase):
         st.divider()
         st.caption("CURRENT LEVEL")
         st.markdown("**Student Pharmacist**")
-        earned = st.session_state.id_xp if st.session_state.app_mode == "id" else (st.session_state.kh_xp if st.session_state.app_mode == "khashan" else (xp_earned(case, st.session_state.answers) if st.session_state.submitted else 0))
+        earned = st.session_state.id_xp if st.session_state.app_mode == "id" else (st.session_state.kh_xp if st.session_state.app_mode == "khashan" else (st.session_state.sg_xp if st.session_state.app_mode == "salgado" else (xp_earned(case, st.session_state.answers) if st.session_state.submitted else 0)))
         st.caption("XP to next level")
         st.progress(min((650+earned) / 1000, 1.0)); st.caption(f"{650+earned} / 1000 XP")
         if st.session_state.app_mode == "id":
             if st.button("Restart ID quiz", icon=":material/restart_alt:", width="stretch"): reset_id_quiz()
         elif st.session_state.app_mode == "khashan":
             if st.button("Restart midterm review", icon=":material/restart_alt:", width="stretch"): reset_khashan_quiz()
+        elif st.session_state.app_mode == "salgado":
+            if st.button("Restart Salgado review", icon=":material/restart_alt:", width="stretch"): reset_salgado_quiz()
         elif st.button("Reset case", icon=":material/restart_alt:", width="stretch"): reset()
 
 def patient_header(case: ClinicalCase):
@@ -551,10 +569,89 @@ def khashan_quiz():
             st.session_state.kh_revealed = False
             st.rerun()
 
+
+def salgado_complete():
+    correct = sum(
+        tuple(sorted(answer)) == SALGADO_BY_ID[question_id].correct
+        for question_id, answer in st.session_state.sg_answers.items()
+    )
+    total = len(SALGADO_QUESTIONS)
+    st.markdown(f'''<div class="quiz-complete"><div class="eyebrow" style="color:#a9d4ff">SALGADO MIDTERM REVIEW</div>
+    <h1>Review complete</h1><div class="quiz-score">{correct} / {total}</div><p>{round(correct / total * 100)}% correct · +{st.session_state.sg_xp} XP</p>
+    <p>Best streak: {st.session_state.sg_best_streak}</p></div>''', unsafe_allow_html=True)
+    missed = [
+        SALGADO_BY_ID[question_id]
+        for question_id in st.session_state.sg_question_queue
+        if tuple(sorted(st.session_state.sg_answers.get(question_id, ()))) != SALGADO_BY_ID[question_id].correct
+    ]
+    if missed:
+        st.markdown("### Concepts to revisit")
+        for question in missed:
+            st.markdown(f"- **{question.topic}:** {question.memory_hook}")
+    else:
+        st.success("Perfect review — every concept was mastered.", icon=":material/trophy:")
+    if st.button("Retake with shuffled questions", icon=":material/replay:", type="primary", width="stretch", key="sg-retake"):
+        reset_salgado_quiz()
+
+
+def salgado_quiz():
+    queue = st.session_state.sg_question_queue
+    if st.session_state.sg_index >= len(queue):
+        salgado_complete()
+        return
+    question = SALGADO_BY_ID[queue[st.session_state.sg_index]]
+    selected = set(st.session_state.sg_selected)
+    revealed = st.session_state.sg_revealed
+    position = st.session_state.sg_index + 1
+    percent = round((position - 1) / len(queue) * 100)
+    st.markdown(f'''<div class="battle-top"><div><h1>Salgado Midterm Review <span class="learning-badge">LEARNING MODE</span></h1></div>
+    <div><b>Question {position} of {len(queue)}</b></div></div>
+    <div class="battle-progress"><div class="battle-progress-label"><b>{html.escape(question.topic)}</b><span>{percent}% complete</span></div>
+    <div class="battle-progress-track"><div class="battle-progress-fill" style="width:{percent}%"></div></div></div>''', unsafe_allow_html=True)
+    with st.container(border=True):
+        st.markdown(f'<div class="battle-question">{html.escape(question.prompt)}</div>', unsafe_allow_html=True)
+        for index, choice in enumerate(question.choices):
+            marker = "✓ " if index in selected else ""
+            if st.button(f"{marker}{chr(65 + index)}.  {choice}", key=f"sg-choice-{question.id}-{index}", disabled=revealed, width="stretch"):
+                selected = {index}
+                st.session_state.sg_selected = sorted(selected)
+                st.rerun()
+        if not revealed and st.button("Submit answer", icon=":material/check:", type="primary", disabled=not selected, width="stretch", key=f"sg-submit-{question.id}"):
+            answer = tuple(sorted(selected))
+            is_correct = answer == question.correct
+            st.session_state.sg_answers[question.id] = answer
+            st.session_state.sg_revealed = True
+            if is_correct:
+                st.session_state.sg_streak += 1
+                st.session_state.sg_xp += 20
+                st.session_state.sg_best_streak = max(st.session_state.sg_best_streak, st.session_state.sg_streak)
+            else:
+                st.session_state.sg_streak = 0
+            st.rerun()
+    if revealed:
+        answer = tuple(sorted(st.session_state.sg_selected))
+        is_correct = answer == question.correct
+        correct_letters = ", ".join(chr(65 + index) for index in question.correct)
+        feedback_class = "correct" if is_correct else "wrong"
+        title = "CORRECT" if is_correct else f"NOT QUITE · CORRECT ANSWER: {correct_letters}"
+        st.markdown(f'''<div class="battle-feedback {feedback_class}"><div class="battle-feedback-title">{title}</div>
+        <div class="battle-feedback-copy">{html.escape(question.explanation)}</div>
+        <div class="battle-feedback-grid"><div class="battle-feedback-section"><b>KEY CONCEPT</b>{html.escape(question.topic)}</div>
+        <div class="battle-feedback-section"><b>MEMORY HOOK</b><div class="battle-feedback-copy">{html.escape(question.memory_hook)}</div>
+        <div class="battle-feedback-source">Source: Note Sep 23, 2026 · Principles of ID lecture · Salgado midterm material</div></div></div></div>''', unsafe_allow_html=True)
+        st.markdown(f"**Streak:** {st.session_state.sg_streak} &nbsp;&nbsp; **XP:** +{st.session_state.sg_xp}")
+        if st.button("Next question", icon=":material/arrow_forward:", type="primary", width="stretch", key=f"sg-next-{question.id}"):
+            st.session_state.sg_index += 1
+            st.session_state.sg_selected = []
+            st.session_state.sg_revealed = False
+            st.rerun()
+
 init_state(); sidebar(CASE_01)
 if st.session_state.app_mode == "id":
     id_quiz()
 elif st.session_state.app_mode == "khashan":
     khashan_quiz()
+elif st.session_state.app_mode == "salgado":
+    salgado_quiz()
 else:
     {"overview":overview,"review":review,"confirm":confirm,"results":results}[st.session_state.screen](CASE_01)
